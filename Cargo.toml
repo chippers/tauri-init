@@ -6,3 +6,17 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1"
+indicatif = "0.16"
+console = "0.15"
+notify = "4"
+#dialoguer = "0.9"
+tempfile = "3"
+which = "4"
+
+[profile.release]
+lto = true
+codegen-units = 1
+incremental = false
+opt-level = "z"
+panic = "abort"

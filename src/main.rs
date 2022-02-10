@@ -8,6 +8,7 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::mpsc::{channel, Sender};
+use std::thread::JoinHandle;
 use std::time::Duration;
 use tempfile::{tempdir, TempDir};
 use which::which;
@@ -37,7 +38,7 @@ macro_rules! run_script {
 
         // set up status watcher
         let (tx, rx) = channel();
-        watch_status(&script, bar, tx, $desc)?;
+        let _ = watch_status(&script, bar, tx, $desc)?;
 
         // wait for watcher
         rx.recv()?;
@@ -188,7 +189,7 @@ fn check_rust(colors: &Colors) -> RustInstall {
             "{}",
             colors
                 .info
-                .apply_to("ℹ `rustup` will be installed, along with Rust stable")
+                .apply_to("ℹ rustup will be installed, along with Rust stable")
         );
         RustInstall::RustupStable
     }
@@ -235,7 +236,7 @@ fn open_script_in_new_terminal(script: &Path) -> Result<()> {
     let mut cmd = Command::new("open");
     cmd.arg("-a");
     cmd.arg("Terminal.app");
-    cmd.arg(script);
+    cmd.arg(script.canonicalize()?);
 
     if cmd.status()?.success() {
         Ok(())
@@ -262,12 +263,18 @@ fn watch_status(
     bar: ProgressBar,
     ready: Sender<()>,
     desc: &'static str,
-) -> Result<()> {
-    let status_path = format!("{}.status", script_path.display());
-    match std::thread::spawn(move || {
+) -> Result<JoinHandle<Result<()>>> {
+    let status_path = PathBuf::from(format!("{}.status", script_path.display()));
+    let status_parent = status_path
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| anyhow!("unable to get script parent directory"))?;
+    Ok(std::thread::spawn(move || {
         let (tx, rx) = channel();
         let mut watcher = watcher(tx, Duration::from_secs(1))?;
-        watcher.watch(&status_path, RecursiveMode::NonRecursive)?;
+
+        // we watch the parent because the status file doesn't currently exist
+        watcher.watch(status_parent, RecursiveMode::Recursive)?;
 
         // let our main thread know it's ok to spawn the script
         ready.send(())?;
@@ -278,7 +285,7 @@ fn watch_status(
                     bar.finish_with_message("Error: unable to watch file for status output");
                     break;
                 }
-                Ok(DebouncedEvent::Write(path)) => {
+                Ok(DebouncedEvent::Create(path)) if path == status_path.canonicalize()? => {
                     if std::fs::read_to_string(&path)?.trim() == "0" {
                         bar.finish_with_message(format!("Successfully installed {}", desc))
                     } else {
@@ -294,15 +301,7 @@ fn watch_status(
         }
 
         Ok(())
-    })
-    .join()
-    {
-        Ok(result) => result,
-        Err(_) => Err(anyhow!(
-            "fifo watcher thread for {} panicked",
-            script_path.display()
-        )),
-    }
+    }))
 }
 
 fn piped(cmd: &mut Command) {

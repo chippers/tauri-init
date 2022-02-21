@@ -51,7 +51,7 @@ fn install_rustup_and_rust_stable(bar: &ProgressBar, sh: &Path) -> Result<Output
 
     // set up shell child
     let mut sh = Command::new(sh);
-    sh.args(&["-s -y"]);
+    sh.args(&["-s", "-y"]);
     let mut sh = sh.spawn()?;
     let mut stdin = sh
         .stdin

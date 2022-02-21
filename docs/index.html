@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>tauri-init</title>
+    <style>
+        body {
+            background-color: #303846;
+            color: #fff;
+
+            height: 100vh;
+            width: 100vw;
+        }
+
+        #container, body {
+            margin: 0;
+            padding: 0;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #container {
+            flex-direction: column;
+            margin: 2rem;
+        }
+
+        pre {
+            padding: 1rem;
+            background-color: #18191a;
+        }
+    </style>
+</head>
+<body>
+<div id="container">
+    <img height="200px" width="auto" src="tauri.svg" alt="Tauri">
+    <pre><code id="snippet">loading...</code></pre>
+</div>
+<script type="module">
+    import { request } from "https://cdn.skypack.dev/@octokit/request"
+    const {data: {tag_name: tag}} = await request('GET /repos/{owner}/{repo}/releases/latest', {
+        owner: 'chippers',
+        repo: 'tauri-init'
+    })
+
+    let snippet = document.getElementById("snippet");
+    snippet.innerText = `curl --proto '=https' --tlsv1.2 -sSf https://tauri-init.chip.sh/tauri-init.sh | sh -s -- "${tag}"`
+</script>
+</body>
+</html>

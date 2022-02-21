@@ -26,12 +26,20 @@ fn cargo() -> Result<PathBuf> {
         .join("cargo"))
 }
 
-fn install_locked(version: &str) -> Result<()> {
+fn install_locked(_version: &str) -> Result<()> {
     let mut cargo = Command::new(cargo()?);
     cargo.arg("install");
     cargo.arg("tauri-cli");
-    cargo.arg("--version");
-    cargo.arg(version);
+
+    // TEMPORARY - use git w/ branch to prevent lto
+    cargo.arg("--git");
+    cargo.arg("https://github.com/tauri-apps/tauri");
+    cargo.arg("--branch");
+    cargo.arg("fix/cli-no-lto");
+
+    //cargo.arg("--version");
+    //cargo.arg(version);
+
     if cargo
         .status()
         .context("unable to install tauri-cli with `cargo-install`")?

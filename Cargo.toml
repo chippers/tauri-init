@@ -1,6 +1,6 @@
 [package]
 name = "tauri-init"
-version = "0.0.9"
+version = "0.0.10"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -8,8 +8,9 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 console = "0.15"
-which = "4"
+dirs = "4"
 ureq = { version = "2", default-features = false, features = ["tls"] }
+which = "4"
 
 [profile.release]
 lto = true

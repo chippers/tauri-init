@@ -1,8 +1,8 @@
 use crate::step::Step;
 use crate::Colors;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+use std::process::{Command, Stdio};
 use ureq::AgentBuilder;
 use which::which;
 
@@ -27,7 +27,7 @@ fn check_rustup() -> Result<PathBuf> {
     which("rustup").with_context(|| "rustup not found in PATH")
 }
 
-fn install_rustup_and_rust_stable(sh: &Path) -> Result<Output> {
+fn install_rustup_and_rust_stable(sh: &Path) -> Result<()> {
     let agent = AgentBuilder::new()
         .user_agent(concat!(
             env!("CARGO_PKG_NAME"),
@@ -63,15 +63,31 @@ fn install_rustup_and_rust_stable(sh: &Path) -> Result<Output> {
             .context("unable to pipe downloaded rustup script to sh stdin")?;
     }
 
-    sh.wait_with_output()
-        .context("failed to run shell subcommand with rustup init shell script")
+    if sh
+        .wait()
+        .context("failed to run shell subcommand with rustup init shell script")?
+        .success()
+    {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "failed to run shell subcommand with rustup init shell script"
+        ))
+    }
 }
 
-fn install_rust_stable(rustup: &Path) -> Result<Output> {
+fn install_rust_stable(rustup: &Path) -> Result<()> {
     let mut cmd = Command::new(rustup);
     cmd.args(&["toolchain", "install", "stable"]);
-    cmd.output()
-        .context("failed to install rust stable with rustup")
+    if cmd
+        .status()
+        .context("failed to install rust stable with rustup")?
+        .success()
+    {
+        Ok(())
+    } else {
+        Err(anyhow!("failed to install rust stable with rustup"))
+    }
 }
 
 impl Step for Rust {
@@ -131,12 +147,11 @@ impl Step for Rust {
         !matches!(self, Self::None)
     }
 
-    fn install(self, _colors: &Colors) -> Result<Option<Output>> {
+    fn install(self, _colors: &Colors) -> Result<()> {
         match self {
-            Self::None => None,
-            Self::Stable { rustup } => Some(install_rust_stable(&rustup)),
-            Self::RustupStable { sh } => Some(install_rustup_and_rust_stable(&sh)),
+            Self::None => Ok(()),
+            Self::Stable { rustup } => install_rust_stable(&rustup),
+            Self::RustupStable { sh } => install_rustup_and_rust_stable(&sh),
         }
-        .transpose()
     }
 }

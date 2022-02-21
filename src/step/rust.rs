@@ -3,7 +3,7 @@ use crate::Colors;
 use anyhow::{Context, Result};
 use indicatif::{MultiProgress, ProgressBar};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 use ureq::AgentBuilder;
 use which::which;
 
@@ -52,18 +52,23 @@ fn install_rustup_and_rust_stable(bar: &ProgressBar, sh: &Path) -> Result<Output
     // set up shell child
     let mut sh = Command::new(sh);
     sh.args(&["-s", "--", "-y"]);
+    sh.stdin(Stdio::piped());
 
     let mut sh = sh.spawn()?;
-    let mut stdin = sh
-        .stdin
-        .take()
-        .context("unable to get stdin of sh command")?;
 
-    // finally read the body (closing the connection) and write it directly to the sh stdin
-    std::io::copy(&mut script, &mut stdin)
-        .context("unable to pipe downloaded rustup script to sh stdin")?;
+    // do stdin stuff in its own scope to drop it before waiting for output
+    {
+        let mut stdin = sh
+            .stdin
+            .take()
+            .context("unable to get stdin of sh command")?;
 
-    bar.set_message("installing rustup");
+        // finally read the body (closing the connection) and write it directly to the sh stdin
+        std::io::copy(&mut script, &mut stdin)
+            .context("unable to pipe downloaded rustup script to sh stdin")?;
+
+        bar.set_message("installing rustup");
+    }
 
     let output = sh
         .wait_with_output()

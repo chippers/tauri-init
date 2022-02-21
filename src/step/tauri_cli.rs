@@ -45,7 +45,7 @@ fn install_locked(version: &str) -> Result<()> {
 
 impl Step for TauriCli {
     fn check(colors: &Colors) -> Result<Self> {
-        let mut check = Command::new("cargo");
+        let mut check = Command::new(cargo()?);
         check.arg("help");
         check.arg("tauri");
         if check.status()?.success() {

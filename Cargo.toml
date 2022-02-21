@@ -9,10 +9,8 @@ edition = "2021"
 anyhow = "1"
 indicatif = "0.16"
 console = "0.15"
-notify = "4"
-#dialoguer = "0.9"
-tempfile = "3"
 which = "4"
+ureq = { version = "2", default-features = false, features = ["tls"] }
 
 [profile.release]
 lto = true

@@ -2,7 +2,6 @@ use crate::step::rust::Rust;
 use crate::step::Step;
 use anyhow::{Context, Result};
 use console::Style;
-use indicatif::MultiProgress;
 
 mod step;
 
@@ -26,11 +25,9 @@ fn run() -> Result<()> {
         err: Style::new().red(),
     };
 
-    let multibar = MultiProgress::new();
-
     let rust_install = Rust::check(&colors)?;
     if rust_install.needs_install() {
-        if let Some(output) = rust_install.install(&multibar, &colors)? {
+        if let Some(output) = rust_install.install(&colors)? {
             if !output.status.success() {
                 eprintln!(
                     "critical rust install step failed: {}",
@@ -42,8 +39,6 @@ fn run() -> Result<()> {
             }
         }
     }
-
-    multibar.join()?;
 
     Ok(())
 }

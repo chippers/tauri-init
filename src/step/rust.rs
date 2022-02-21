@@ -1,7 +1,6 @@
 use crate::step::Step;
 use crate::Colors;
 use anyhow::{Context, Result};
-use indicatif::{MultiProgress, ProgressBar};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use ureq::AgentBuilder;
@@ -28,7 +27,7 @@ fn check_rustup() -> Result<PathBuf> {
     which("rustup").with_context(|| "rustup not found in PATH")
 }
 
-fn install_rustup_and_rust_stable(bar: &ProgressBar, sh: &Path) -> Result<Output> {
+fn install_rustup_and_rust_stable(sh: &Path) -> Result<Output> {
     let agent = AgentBuilder::new()
         .user_agent(concat!(
             env!("CARGO_PKG_NAME"),
@@ -38,16 +37,12 @@ fn install_rustup_and_rust_stable(bar: &ProgressBar, sh: &Path) -> Result<Output
         ))
         .build();
 
-    bar.set_message("fetching rustup initialization script");
-
     // connect to the server and read the body
     let mut script = agent
         .get("https://sh.rustup.rs/")
         .call()
         .context("failed to download rustup shell script")?
         .into_reader();
-
-    bar.set_message("preparing child shell to install rustup");
 
     // set up shell child
     let mut sh = Command::new(sh);
@@ -66,28 +61,17 @@ fn install_rustup_and_rust_stable(bar: &ProgressBar, sh: &Path) -> Result<Output
         // finally read the body (closing the connection) and write it directly to the sh stdin
         std::io::copy(&mut script, &mut stdin)
             .context("unable to pipe downloaded rustup script to sh stdin")?;
-
-        bar.set_message("installing rustup");
     }
 
-    let output = sh
-        .wait_with_output()
-        .context("failed to run shell subcommand with rustup init shell script");
-
-    bar.set_message("installed rustup and its default profile (stable rust)");
-    output
+    sh.wait_with_output()
+        .context("failed to run shell subcommand with rustup init shell script")
 }
 
-fn install_rust_stable(bar: &ProgressBar, rustup: &Path) -> Result<Output> {
-    bar.set_message("installing rust stable with rustup");
+fn install_rust_stable(rustup: &Path) -> Result<Output> {
     let mut cmd = Command::new(rustup);
     cmd.args(&["toolchain", "install", "stable"]);
-    let output = cmd
-        .output()
-        .context("failed to install rust stable with rustup");
-
-    bar.set_message("installed rust stable");
-    output
+    cmd.output()
+        .context("failed to install rust stable with rustup")
 }
 
 impl Step for Rust {
@@ -147,18 +131,12 @@ impl Step for Rust {
         !matches!(self, Self::None)
     }
 
-    fn install(self, multibar: &MultiProgress, _colors: &Colors) -> Result<Option<Output>> {
-        let bar = multibar.add(ProgressBar::new_spinner());
-        let output = match self {
+    fn install(self, _colors: &Colors) -> Result<Option<Output>> {
+        match self {
             Self::None => None,
-            Self::Stable { rustup } => Some(install_rust_stable(&bar, &rustup)),
-            Self::RustupStable { sh } => Some(install_rustup_and_rust_stable(&bar, &sh)),
+            Self::Stable { rustup } => Some(install_rust_stable(&rustup)),
+            Self::RustupStable { sh } => Some(install_rustup_and_rust_stable(&sh)),
         }
-        .transpose();
-
-        // make sure we clear the bar
-        bar.finish();
-
-        output
+        .transpose()
     }
 }

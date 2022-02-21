@@ -1,10 +1,8 @@
 use crate::{Colors, Step};
 use anyhow::{anyhow, Context, Result};
 use dirs::home_dir;
-use std::env::current_dir;
 use std::path::PathBuf;
 use std::process::Command;
-use which::{which, which_in};
 
 // todo: we need to figure out a way to specify locked in the future. likely through cli args
 // we will also eventually have "auto" where it doesn't specify a version, but that will not work
@@ -18,14 +16,14 @@ pub(crate) enum TauriCli {
 
 // cargo may not be in the path yet
 fn cargo() -> Result<PathBuf> {
-    which("cargo").or_else(|_| {
-        current_dir()
-            .context("unable to find current working directory")
-            .and_then(|cwd| {
-                which_in("cargo", home_dir(), cwd)
-                    .context("unable to find cargo in default rustup path")
-            })
-    })
+    Ok(home_dir()
+        .ok_or_else(|| {
+            anyhow!("unable to find home directory, required to find cargo without PATH")
+        })?
+        .canonicalize()?
+        .join(".cargo")
+        .join("bin")
+        .join("cargo"))
 }
 
 fn install_locked(version: &str) -> Result<()> {
